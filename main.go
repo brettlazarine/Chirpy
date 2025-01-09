@@ -14,7 +14,8 @@ import (
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
-	Queries        *database.Queries
+	db        *database.Queries
+	platform       string
 }
 
 func main() {
@@ -23,6 +24,7 @@ func main() {
 
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	if dbURL == "" {
 		log.Fatalf("DB_URL environment variable is required")
 	}
@@ -35,14 +37,18 @@ func main() {
 
 	cfg := &apiConfig{
 		fileserverHits: atomic.Int32{},
-		Queries:        dbQueries,
+		db:        dbQueries,
+		platform:       platform,
 	}
 
 	mux := http.NewServeMux()
 	fileServer := http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoot)))
+
+	// API routes
 	mux.Handle("/app/", cfg.middlewareMetricsInc(fileServer))
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 	mux.HandleFunc("POST /api/validate_chirp", cfg.handlerValidateChirp)
+	mux.HandleFunc("POST /api/users", cfg.handlerCreateUser)
 
 	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
 	mux.HandleFunc("POST /admin/reset", cfg.handlerReset)
