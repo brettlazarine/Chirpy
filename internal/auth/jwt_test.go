@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"net/http"
+
 	"github.com/google/uuid"
 )
 
@@ -143,6 +145,92 @@ func TestValidateJWT_BootDev(t *testing.T) {
 			}
 			if gotUserID != tt.wantUserID {
 				t.Errorf("ValidateJWT() gotUserID = %v, want %v", gotUserID, tt.wantUserID)
+			}
+		})
+	}
+}
+
+func TestGetBearerToken(t *testing.T) {
+	validToken := "Bearer valid.token.string"
+	tokenString := "valid.token.string"
+	invalidToken := "invalid.token.string"
+
+	tests := []struct {
+		name      string
+		header    string
+		wantToken string
+		wantErr   bool
+	}{
+		{
+			name:      "Valid token",
+			header:    validToken,
+			wantToken: tokenString,
+			wantErr:   false,
+		},
+		{
+			name:      "Invalid token",
+			header:    invalidToken,
+			wantToken: "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			headers := make(map[string][]string)
+			headers["Authorization"] = []string{tt.header}
+			gotToken, err := GetBearerToken(headers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBearerToken() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotToken != tt.wantToken {
+				t.Errorf("GetBearerToken() gotToken = %v, want %v", gotToken, tt.wantToken)
+			}
+		})
+	}
+}
+
+func TestGetBearerToken_BootDev(t *testing.T) {
+	tests := []struct {
+		name      string
+		headers   http.Header
+		wantToken string
+		wantErr   bool
+	}{
+		{
+			name: "Valid Bearer token",
+			headers: http.Header{
+				"Authorization": []string{"Bearer valid_token"},
+			},
+			wantToken: "valid_token",
+			wantErr:   false,
+		},
+		{
+			name:      "Missing Authorization header",
+			headers:   http.Header{},
+			wantToken: "",
+			wantErr:   true,
+		},
+		{
+			name: "Malformed Authorization header",
+			headers: http.Header{
+				"Authorization": []string{"InvalidBearer token"},
+			},
+			wantToken: "",
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotToken, err := GetBearerToken(tt.headers)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("GetBearerToken() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotToken != tt.wantToken {
+				t.Errorf("GetBearerToken() gotToken = %v, want %v", gotToken, tt.wantToken)
 			}
 		})
 	}
